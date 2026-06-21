@@ -5,9 +5,10 @@ from sqlalchemy.orm import selectinload
 
 from core.database import get_db
 from models.user import User
-from models.expense import Expense, ExpenseSplit
+from models.expense import Expense, ExpenseSplit, ExpenseComment
+from models.activity import ActivityLog
 from models.group import Group, group_members
-from schemas.expense import ExpenseCreate, ExpenseResponse
+from schemas.expense import ExpenseCreate, ExpenseResponse, CommentCreate, CommentResponse
 from api.dependencies import get_current_user
 from services.expense_service import validate_and_calculate_splits
 
@@ -43,6 +44,7 @@ async def create_expense(expense_in: ExpenseCreate, db: AsyncSession = Depends(g
         description=expense_in.description,
         total_amount=expense_in.total_amount,
         currency=expense_in.currency,
+        category=expense_in.category,
         group_id=expense_in.group_id,
         created_by_id=current_user.id,
         split_method=expense_in.split_method
@@ -55,9 +57,20 @@ async def create_expense(expense_in: ExpenseCreate, db: AsyncSession = Depends(g
             expense_id=new_expense.id,
             user_id=split.user_id,
             amount_paid=split.amount_paid,
-            amount_owed=split.amount_owed
+            amount_owed=split.amount_owed,
+            shares=split.shares
         )
         db.add(db_split)
+        
+    # Log Activity
+    activity = ActivityLog(
+        user_id=current_user.id,
+        action="CREATED_EXPENSE",
+        entity_type="Expense",
+        entity_id=new_expense.id,
+        details=f"Created expense '{new_expense.description}' for {new_expense.total_amount} {new_expense.currency}"
+    )
+    db.add(activity)
 
     await db.commit()
     
@@ -69,9 +82,9 @@ async def create_expense(expense_in: ExpenseCreate, db: AsyncSession = Depends(g
 
 @router.get("", response_model=list[ExpenseResponse])
 async def get_user_expenses(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # Get all expenses where the current user is a participant
+    # Get all expenses where the current user is a participant and not deleted
     stmt = select(Expense).join(ExpenseSplit).where(
-        ExpenseSplit.user_id == current_user.id
+        (ExpenseSplit.user_id == current_user.id) & (Expense.is_deleted == 0)
     ).options(selectinload(Expense.splits))
     
     result = await db.execute(stmt)
@@ -79,7 +92,7 @@ async def get_user_expenses(db: AsyncSession = Depends(get_db), current_user: Us
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 async def get_expense(expense_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    stmt = select(Expense).where(Expense.id == expense_id).options(selectinload(Expense.splits))
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0)).options(selectinload(Expense.splits))
     result = await db.execute(stmt)
     expense = result.scalars().first()
     
@@ -92,3 +105,136 @@ async def get_expense(expense_id: int, db: AsyncSession = Depends(get_db), curre
         raise HTTPException(status_code=403, detail="Not authorized to view this expense")
         
     return expense
+
+@router.delete("/{expense_id}")
+async def delete_expense(expense_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0))
+    expense = (await db.execute(stmt)).scalars().first()
+    
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    if expense.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the creator can delete this expense")
+        
+    expense.is_deleted = 1
+    
+    activity = ActivityLog(
+        user_id=current_user.id,
+        action="DELETED_EXPENSE",
+        entity_type="Expense",
+        entity_id=expense.id,
+        details=f"Deleted expense '{expense.description}'"
+    )
+    db.add(activity)
+    
+    await db.commit()
+    return {"message": "Expense deleted successfully"}
+
+@router.put("/{expense_id}", response_model=ExpenseResponse)
+async def update_expense(expense_id: int, expense_in: ExpenseCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0)).options(selectinload(Expense.splits))
+    expense = (await db.execute(stmt)).scalars().first()
+    
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    if expense.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the creator can edit this expense")
+
+    # Recalculate splits
+    calculated_splits = validate_and_calculate_splits(expense_in)
+    
+    # Update expense fields
+    expense.description = expense_in.description
+    expense.total_amount = expense_in.total_amount
+    expense.currency = expense_in.currency
+    expense.category = expense_in.category
+    expense.split_method = expense_in.split_method
+    
+    # Delete old splits and add new ones
+    for old_split in expense.splits:
+        await db.delete(old_split)
+        
+    for split in calculated_splits:
+        db_split = ExpenseSplit(
+            expense_id=expense.id,
+            user_id=split.user_id,
+            amount_paid=split.amount_paid,
+            amount_owed=split.amount_owed,
+            shares=split.shares
+        )
+        db.add(db_split)
+        
+    # Log Activity
+    activity = ActivityLog(
+        user_id=current_user.id,
+        action="EDITED_EXPENSE",
+        entity_type="Expense",
+        entity_id=expense.id,
+        details=f"Edited expense '{expense.description}'"
+    )
+    db.add(activity)
+
+    await db.commit()
+    
+    # Reload
+    result = await db.execute(
+        select(Expense).where(Expense.id == expense.id).options(selectinload(Expense.splits))
+    )
+    return result.scalars().first()
+
+@router.post("/{expense_id}/comments", response_model=CommentResponse)
+async def add_comment(expense_id: int, comment: CommentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0)).options(selectinload(Expense.splits))
+    expense = (await db.execute(stmt)).scalars().first()
+    
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    # Check participation
+    participant = any(split.user_id == current_user.id for split in expense.splits)
+    if not participant and expense.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to comment on this expense")
+        
+    new_comment = ExpenseComment(
+        expense_id=expense_id,
+        user_id=current_user.id,
+        content=comment.content
+    )
+    db.add(new_comment)
+    
+    activity = ActivityLog(
+        user_id=current_user.id,
+        action="COMMENTED_EXPENSE",
+        entity_type="Expense",
+        entity_id=expense.id,
+        details=f"Commented on expense '{expense.description}'"
+    )
+    db.add(activity)
+    
+    await db.commit()
+    
+    # Reload with user relationship for response
+    result = await db.execute(
+        select(ExpenseComment).where(ExpenseComment.id == new_comment.id).options(selectinload(ExpenseComment.user))
+    )
+    return result.scalars().first()
+
+@router.get("/{expense_id}/comments", response_model=list[CommentResponse])
+async def get_comments(expense_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Check if expense exists and user has access
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0)).options(selectinload(Expense.splits))
+    expense = (await db.execute(stmt)).scalars().first()
+    
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    participant = any(split.user_id == current_user.id for split in expense.splits)
+    if not participant and expense.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view comments")
+        
+    comments_stmt = select(ExpenseComment).where(ExpenseComment.expense_id == expense_id).options(selectinload(ExpenseComment.user)).order_by(ExpenseComment.created_at.asc())
+    comments = (await db.execute(comments_stmt)).scalars().all()
+    
+    return comments

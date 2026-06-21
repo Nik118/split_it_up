@@ -2,56 +2,52 @@ from collections import defaultdict
 from typing import List, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 
 from models.expense import ExpenseSplit, Expense, Settlement
 
-async def get_user_balances(user_id: int, db: AsyncSession, group_id: int = None) -> Dict[str, float]:
+async def get_user_balances(user_id: int, db: AsyncSession, group_id: int = None) -> Dict[int, float]:
     """
     Returns a dictionary of how much the user owes to others, or how much others owe the user.
     Positive balance means they owe the user.
     Negative balance means the user owes them.
     """
-    # 1. Fetch all expense splits where this user is involved
-    query = select(ExpenseSplit).join(Expense)
-    
-    if group_id:
-        query = query.where(Expense.group_id == group_id)
-        
-    result = await db.execute(query)
-    splits = result.scalars().all()
-    
-    # Calculate net balance for each user across all expenses
-    # user_id -> net_balance
     net_balances = defaultdict(float)
-    
-    for split in splits:
-        net_balances[split.user_id] += (split.amount_paid - split.amount_owed)
 
-    # 2. Add settlements
-    # A settlement is when payer pays payee
-    settlement_query = select(Settlement)
     if group_id:
-        # If we had group_id on settlements, we'd filter here. We don't for now, 
-        # but group settlements should be tracked. Let's assume settlements are global for simplicity,
-        # or we could add group_id to Settlement. Let's filter only global if no group_id.
-        # Actually, let's ignore settlements if group_id is specified since our settlement model
-        # doesn't have group_id. In a real app, settlements can be tied to a group.
-        pass
+        # Get all splits for this group
+        query = select(ExpenseSplit).join(Expense).where(
+            (Expense.group_id == group_id) & (Expense.is_deleted == 0)
+        )
+        splits = (await db.execute(query)).scalars().all()
+        for split in splits:
+            net_balances[split.user_id] += (split.amount_paid - split.amount_owed)
+            
+        # Add settlements specifically for this group if we had a group_id on Settlements.
+        # Since we don't, we will ignore settlements for group balance simplification 
+        # (this matches common Splitwise logic where group debts are isolated from global settlements).
     else:
-        settlement_query = settlement_query.where(
+        # Get all expenses the user is involved in
+        expense_ids_query = select(ExpenseSplit.expense_id).where(ExpenseSplit.user_id == user_id)
+        expense_ids = (await db.execute(expense_ids_query)).scalars().all()
+        
+        if expense_ids:
+            query = select(ExpenseSplit).join(Expense).where(
+                (ExpenseSplit.expense_id.in_(expense_ids)) & (Expense.is_deleted == 0)
+            )
+            splits = (await db.execute(query)).scalars().all()
+            for split in splits:
+                net_balances[split.user_id] += (split.amount_paid - split.amount_owed)
+                
+        # Add global settlements where user is payer or payee
+        settlement_query = select(Settlement).where(
             or_(Settlement.payer_id == user_id, Settlement.payee_id == user_id)
         )
         settlements = (await db.execute(settlement_query)).scalars().all()
         for s in settlements:
-            # If user is payer, their balance with payee increases
-            if s.payer_id == user_id:
-                pass # We need to track pairwise balances
-    
-    # Wait, the above logic calculates net balances globally, but it doesn't give pairwise debts.
-    # To get pairwise debts (who owes who), we need to simplify debts.
-    
-    # Let's simplify the debts globally or per group.
+            net_balances[s.payer_id] += s.amount # Payer's net balance increases (they paid)
+            net_balances[s.payee_id] -= s.amount # Payee's net balance decreases (they received)
+
     return dict(net_balances)
 
 def simplify_debts(balances: Dict[int, float]) -> List[Tuple[int, int, float]]:

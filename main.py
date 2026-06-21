@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import auth, users, groups, expenses, balances
+from api.routers import auth, users, groups, expenses, balances, activity
 
 app = FastAPI(
     title="Split It Up",
@@ -30,6 +30,7 @@ app.include_router(users.router)
 app.include_router(groups.router)
 app.include_router(expenses.router)
 app.include_router(balances.router)
+app.include_router(activity.router)
 
 @app.get("/")
 async def root():

@@ -97,3 +97,35 @@ def test_invalid_total_paid():
     with pytest.raises(HTTPException) as excinfo:
         validate_and_calculate_splits(expense)
     assert "Total amount paid must equal the total expense amount" in str(excinfo.value.detail)
+
+def test_share_split_valid():
+    expense = ExpenseCreate(
+        description="Hotel",
+        total_amount=300.0,
+        split_method=SplitMethod.SHARE,
+        splits=[
+            ExpenseSplitCreate(user_id=1, amount_paid=300.0, shares=2.0), # 2 shares
+            ExpenseSplitCreate(user_id=2, amount_paid=0.0, shares=1.0),   # 1 share
+        ]
+    )
+    
+    splits = validate_and_calculate_splits(expense)
+    # Total shares = 3. 300 / 3 = 100 per share.
+    # User 1 owes 200, User 2 owes 100
+    assert splits[0].amount_owed == 200.0
+    assert splits[1].amount_owed == 100.0
+
+def test_share_split_invalid_shares():
+    expense = ExpenseCreate(
+        description="Hotel",
+        total_amount=300.0,
+        split_method=SplitMethod.SHARE,
+        splits=[
+            ExpenseSplitCreate(user_id=1, amount_paid=300.0, shares=0.0),
+            ExpenseSplitCreate(user_id=2, amount_paid=0.0, shares=0.0), # Total shares 0
+        ]
+    )
+    
+    with pytest.raises(HTTPException) as excinfo:
+        validate_and_calculate_splits(expense)
+    assert "Total shares must be greater than 0" in str(excinfo.value.detail)
