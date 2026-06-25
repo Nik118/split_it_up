@@ -10,6 +10,7 @@ function Register() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ function Register() {
     
     try {
       await register(email, fullName, password);
-      navigate('/');
+      setIsSuccess(true);
     } catch (err) {
       let errMsg = err.response?.data?.detail;
       if (Array.isArray(errMsg)) {
@@ -34,6 +35,23 @@ function Register() {
       setLoading(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="auth-container">
+        <div className="glass-card auth-card" style={{ textAlign: 'center' }}>
+          <h2 style={{ color: 'var(--color-success)', marginBottom: '1rem' }}>Registration Successful!</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+            We've sent a verification link to your email address: <strong>{email}</strong>. 
+            Please check your inbox (or terminal logs) and click the link to activate your account.
+          </p>
+          <button className="btn-secondary" onClick={() => navigate('/login')}>
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container">

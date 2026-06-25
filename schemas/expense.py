@@ -17,6 +17,7 @@ class ExpenseCreate(BaseModel):
     total_amount: float = Field(..., gt=0)
     currency: Optional[str] = "INR"
     category: Optional[str] = "General"
+    receipt_url: Optional[str] = None
     group_id: Optional[int] = None
     split_method: SplitMethod
     splits: List[ExpenseSplitCreate]
@@ -36,6 +37,7 @@ class ExpenseResponse(BaseModel):
     total_amount: float
     currency: str
     category: str
+    receipt_url: Optional[str]
     is_deleted: bool
     date: datetime
     group_id: Optional[int]

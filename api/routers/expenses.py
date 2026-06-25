@@ -8,9 +8,10 @@ from models.user import User
 from models.expense import Expense, ExpenseSplit, ExpenseComment
 from models.activity import ActivityLog
 from models.group import Group, group_members
-from schemas.expense import ExpenseCreate, ExpenseResponse, CommentCreate, CommentResponse
+from schemas.expense import ExpenseCreate, ExpenseResponse, CommentCreate, CommentResponse, ActivityLogResponse
 from api.dependencies import get_current_user
 from services.expense_service import validate_and_calculate_splits
+from api.routers.ws import manager
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -74,6 +75,16 @@ async def create_expense(expense_in: ExpenseCreate, db: AsyncSession = Depends(g
 
     await db.commit()
     
+    # Send WebSocket Notifications
+    notification = {
+        "type": "NEW_EXPENSE",
+        "message": f"{current_user.name} added '{new_expense.description}'",
+        "expense_id": new_expense.id
+    }
+    for split in calculated_splits:
+        if split.user_id != current_user.id:
+            await manager.send_personal_message(notification, split.user_id)
+    
     # Reload with splits
     result = await db.execute(
         select(Expense).where(Expense.id == new_expense.id).options(selectinload(Expense.splits))
@@ -81,11 +92,13 @@ async def create_expense(expense_in: ExpenseCreate, db: AsyncSession = Depends(g
     return result.scalars().first()
 
 @router.get("", response_model=list[ExpenseResponse])
-async def get_user_expenses(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_user_expenses(group_id: int = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Get all expenses where the current user is a participant and not deleted
-    stmt = select(Expense).join(ExpenseSplit).where(
-        (ExpenseSplit.user_id == current_user.id) & (Expense.is_deleted == 0)
-    ).options(selectinload(Expense.splits))
+    conditions = [ExpenseSplit.user_id == current_user.id, Expense.is_deleted == 0]
+    if group_id is not None:
+        conditions.append(Expense.group_id == group_id)
+
+    stmt = select(Expense).join(ExpenseSplit).where(*conditions).options(selectinload(Expense.splits)).order_by(Expense.date.desc())
     
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -237,4 +250,24 @@ async def get_comments(expense_id: int, db: AsyncSession = Depends(get_db), curr
     comments_stmt = select(ExpenseComment).where(ExpenseComment.expense_id == expense_id).options(selectinload(ExpenseComment.user)).order_by(ExpenseComment.created_at.asc())
     comments = (await db.execute(comments_stmt)).scalars().all()
     
+    
     return comments
+
+@router.get("/{expense_id}/activity", response_model=list[ActivityLogResponse])
+async def get_expense_activity(expense_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    stmt = select(Expense).where((Expense.id == expense_id) & (Expense.is_deleted == 0)).options(selectinload(Expense.splits))
+    expense = (await db.execute(stmt)).scalars().first()
+    
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+        
+    participant = any(split.user_id == current_user.id for split in expense.splits)
+    if not participant and expense.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view activity")
+        
+    activity_stmt = select(ActivityLog).where(
+        (ActivityLog.entity_type == "Expense") & (ActivityLog.entity_id == expense_id)
+    ).options(selectinload(ActivityLog.user)).order_by(ActivityLog.created_at.desc())
+    
+    activities = (await db.execute(activity_stmt)).scalars().all()
+    return activities

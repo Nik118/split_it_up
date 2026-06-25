@@ -19,6 +19,7 @@ class Expense(Base):
     currency = Column(String, default="INR")
     date = Column(DateTime, default=datetime.utcnow)
     category = Column(String, default="General")
+    receipt_url = Column(String, nullable=True)
     is_deleted = Column(Integer, default=0) # Using Integer (0/1) for boolean to be universally safe across DBs, or Boolean
     
     

@@ -9,9 +9,26 @@ from api.dependencies import get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+from pydantic import BaseModel
+
+class CurrencyUpdate(BaseModel):
+    currency: str
+
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.put("/me/currency", response_model=UserResponse)
+async def update_currency(currency_update: CurrencyUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.default_currency = currency_update.currency
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+@router.get("/all", response_model=list[UserResponse])
+async def read_all_users(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User))
+    return result.scalars().all()
 
 @router.post("/friends/{friend_id}")
 async def add_friend(friend_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):

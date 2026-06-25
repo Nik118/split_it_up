@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
-from api.routers import auth, users, groups, expenses, balances, activity
+from api.routers import auth, users, groups, expenses, balances, activity, uploads, ws
 
 app = FastAPI(
     title="Split It Up",
@@ -31,6 +33,14 @@ app.include_router(groups.router)
 app.include_router(expenses.router)
 app.include_router(balances.router)
 app.include_router(activity.router)
+app.include_router(uploads.router)
+app.include_router(ws.router)
+
+# Mount static files
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/")
 async def root():

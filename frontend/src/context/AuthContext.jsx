@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (email, full_name, password) => {
     await api.post('/auth/register', { email, name: full_name, password });
-    await login(email, password);
+    // Intentionally not logging in to enforce email verification flow
   };
 
   const logout = () => {
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );
