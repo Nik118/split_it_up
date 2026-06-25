@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
-from api.routers import auth, users, groups, expenses, balances, activity, uploads, ws
+from api.routers import auth, users, groups, expenses, balances, activity, uploads, ws, ai
 
 app = FastAPI(
     title="Split It Up",
@@ -35,6 +35,7 @@ app.include_router(balances.router)
 app.include_router(activity.router)
 app.include_router(uploads.router)
 app.include_router(ws.router)
+app.include_router(ai.router)
 
 # Mount static files
 UPLOAD_DIR = "uploads"

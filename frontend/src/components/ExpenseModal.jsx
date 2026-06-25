@@ -128,6 +128,19 @@ function ExpenseModal({ onClose, onSuccess, initialGroupId, initialExpense }) {
     }
   };
 
+  const handleDescriptionBlur = async () => {
+    if (description.trim().length > 2 && category === 'General') {
+      try {
+        const res = await api.post('/ai/categorize', { description });
+        if (res.data && res.data.category) {
+          setCategory(res.data.category);
+        }
+      } catch (err) {
+        console.error("Failed to fetch smart category", err);
+      }
+    }
+  };
+
   const handleFriendToggle = (friendId) => {
     if (selectedFriends.includes(friendId)) {
       setSelectedFriends(selectedFriends.filter(id => id !== friendId));
@@ -278,7 +291,14 @@ function ExpenseModal({ onClose, onSuccess, initialGroupId, initialExpense }) {
 
           <div className="input-group">
             <label>Description</label>
-            <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Dinner at Mcdonalds" required />
+            <input 
+              type="text" 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+              onBlur={handleDescriptionBlur}
+              placeholder="e.g. Dinner at Mcdonalds" 
+              required 
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '1rem' }}>

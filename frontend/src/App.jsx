@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard';
 import Groups from './pages/Groups';
 import GroupDetail from './pages/GroupDetail';
 import Expenses from './pages/Expenses';
+import AIChatbot from './components/AIChatbot';
 
 // A simple wrapper to protect routes
 const PrivateRoute = ({ children }) => {
@@ -44,6 +45,7 @@ function App() {
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
+            <AIChatbot />
           </Router>
         </WebSocketProvider>
       </AuthProvider>
