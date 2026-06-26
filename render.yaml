@@ -3,6 +3,7 @@ services:
   - type: web
     name: split-it-up-api
     env: python
+    plan: free
     buildCommand: "./build.sh"
     startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
