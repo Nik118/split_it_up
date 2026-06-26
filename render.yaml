@@ -28,3 +28,7 @@ services:
           type: web
           name: split-it-up-api
           envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
