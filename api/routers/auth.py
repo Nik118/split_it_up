@@ -6,12 +6,21 @@ from sqlalchemy.future import select
 
 from core.config import settings
 from core.database import get_db
-from core.security import (create_access_token, create_password_reset_token,
-                           create_verification_token, get_password_hash,
-                           verify_password)
+from core.security import (
+    create_access_token,
+    create_password_reset_token,
+    create_verification_token,
+    get_password_hash,
+    verify_password,
+)
 from models.user import User
-from schemas.user import (PasswordResetConfirm, PasswordResetRequest, Token,
-                          UserCreate, UserResponse)
+from schemas.user import (
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    Token,
+    UserCreate,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

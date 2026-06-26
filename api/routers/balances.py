@@ -6,8 +6,12 @@ from api.dependencies import get_current_user
 from core.database import get_db
 from models.expense import Settlement
 from models.user import User
-from schemas.balance import (Debt, SettlementCreate, SettlementResponse,
-                             SimplifiedDebtsResponse)
+from schemas.balance import (
+    Debt,
+    SettlementCreate,
+    SettlementResponse,
+    SimplifiedDebtsResponse,
+)
 from services.balance_service import get_user_balances, simplify_debts
 
 router = APIRouter(prefix="/balances", tags=["balances"])

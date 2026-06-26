@@ -2,8 +2,6 @@ import asyncio
 
 import asyncpg
 
-from core.config import settings
-
 
 async def create_database():
     # Connect to the default 'postgres' database to create a new one

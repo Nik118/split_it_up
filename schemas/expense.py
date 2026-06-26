@@ -4,7 +4,6 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from models.expense import SplitMethod
-from schemas.group import GroupResponse
 from schemas.user import UserResponse
 
 

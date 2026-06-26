@@ -4,8 +4,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import (activity, ai, auth, balances, expenses, groups,
-                         uploads, users, ws)
+from api.routers import (
+    activity,
+    ai,
+    auth,
+    balances,
+    expenses,
+    groups,
+    uploads,
+    users,
+    ws,
+)
 
 app = FastAPI(
     title="Split It Up",
@@ -19,7 +28,7 @@ origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,3 +54,8 @@ app.mount("/static/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 @app.get("/")
 async def root():
     return {"message": "Welcome to Split It Up! Go to /docs for Swagger UI."}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "split_it_up"}

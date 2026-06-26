@@ -1,17 +1,13 @@
-import asyncio
 import os
-import random
 import shutil
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 UPLOAD_DIR = "uploads"
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
 
 
 @router.post("/receipt")
@@ -43,19 +39,22 @@ async def scan_receipt(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Mock AI Processing Delay
-    await asyncio.sleep(2.0)
-
     # Mock AI Extraction Results
+    import random
+
     merchants = ["Starbucks", "Walmart", "Local Diner", "Gas Station", "Uber", "Amazon"]
+    chosen_merchant = random.choice(merchants)
     amount = round(random.uniform(5.0, 150.0), 2)
+
+    food_merchants = {"Starbucks", "Local Diner"}
+    category = "Food & Dining" if chosen_merchant in food_merchants else "General"
 
     return {
         "url": f"/static/uploads/{filename}",
         "extracted_data": {
-            "description": f"{random.choice(merchants)} Receipt",
+            "description": f"{chosen_merchant} Receipt",
             "amount": amount,
             "date": datetime.utcnow().strftime("%Y-%m-%d"),
-            "category": "Food & Dining" if "Starbucks" in merchants else "General",
+            "category": category,
         },
     }

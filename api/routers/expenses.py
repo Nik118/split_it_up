@@ -10,8 +10,13 @@ from models.activity import ActivityLog
 from models.expense import Expense, ExpenseComment, ExpenseSplit
 from models.group import Group, group_members
 from models.user import User
-from schemas.expense import (ActivityLogResponse, CommentCreate,
-                             CommentResponse, ExpenseCreate, ExpenseResponse)
+from schemas.expense import (
+    ActivityLogResponse,
+    CommentCreate,
+    CommentResponse,
+    ExpenseCreate,
+    ExpenseResponse,
+)
 from services.expense_service import validate_and_calculate_splits
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])

@@ -15,24 +15,13 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import models  # Important to import all models
 from core.config import settings
 from core.database import Base
+from core.utils import fix_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-db_url = settings.DATABASE_URL
-if db_url and "postgres" in db_url:
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
-    elif db_url.startswith("postgresql://"):
-        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-
-    # Strip all query parameters (like sslmode, channel_binding, options)
-    # which crash asyncpg, and explicitly force ssl=require
-    if "?" in db_url:
-        db_url = db_url.split("?")[0]
-    db_url += "?ssl=require"
-
+db_url = fix_database_url(settings.DATABASE_URL)
 config.set_main_option("sqlalchemy.url", db_url)
 
 # Interpret the config file for Python logging.

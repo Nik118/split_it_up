@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -8,8 +9,6 @@ from models.user import User, friends_association
 from schemas.user import UserResponse
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-from pydantic import BaseModel
 
 
 class CurrencyUpdate(BaseModel):
