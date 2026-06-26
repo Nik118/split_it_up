@@ -1,9 +1,11 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from typing import Dict, List
 import json
 import logging
+from typing import Dict, List
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 router = APIRouter(prefix="/ws", tags=["websockets"])
+
 
 class ConnectionManager:
     def __init__(self):
@@ -15,7 +17,9 @@ class ConnectionManager:
         if user_id not in self.active_connections:
             self.active_connections[user_id] = []
         self.active_connections[user_id].append(websocket)
-        logging.info(f"User {user_id} connected. Active connections: {len(self.active_connections[user_id])}")
+        logging.info(
+            f"User {user_id} connected. Active connections: {len(self.active_connections[user_id])}"
+        )
 
     def disconnect(self, websocket: WebSocket, user_id: int):
         if user_id in self.active_connections:
@@ -33,7 +37,9 @@ class ConnectionManager:
                 except Exception as e:
                     logging.error(f"Error sending message to {user_id}: {e}")
 
+
 manager = ConnectionManager()
+
 
 @router.websocket("/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: int):

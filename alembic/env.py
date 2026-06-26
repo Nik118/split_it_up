@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -6,15 +8,13 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-import sys
-import os
 
 # Add the project root to the python path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+import models  # Important to import all models
 from core.config import settings
 from core.database import Base
-import models # Important to import all models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -26,6 +26,9 @@ if db_url:
         db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
     elif db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    # asyncpg uses ssl= instead of sslmode=
+    db_url = db_url.replace("sslmode=", "ssl=")
 
 config.set_main_option("sqlalchemy.url", db_url)
 

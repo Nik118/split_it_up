@@ -1,16 +1,20 @@
-from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from models.expense import SplitMethod
-from schemas.user import UserResponse
 from schemas.group import GroupResponse
+from schemas.user import UserResponse
+
 
 class ExpenseSplitCreate(BaseModel):
     user_id: int
     amount_paid: float = 0.0
     amount_owed: float = 0.0  # Optional if EQUAL split
     percentage: Optional[float] = None  # Used if PERCENTAGE split
-    shares: Optional[float] = None # Used if SHARE split
+    shares: Optional[float] = None  # Used if SHARE split
+
 
 class ExpenseCreate(BaseModel):
     description: str
@@ -22,6 +26,7 @@ class ExpenseCreate(BaseModel):
     split_method: SplitMethod
     splits: List[ExpenseSplitCreate]
 
+
 class ExpenseSplitResponse(BaseModel):
     id: int
     user_id: int
@@ -30,6 +35,7 @@ class ExpenseSplitResponse(BaseModel):
     shares: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class ExpenseResponse(BaseModel):
     id: int
@@ -47,8 +53,10 @@ class ExpenseResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class CommentCreate(BaseModel):
     content: str
+
 
 class CommentResponse(CommentCreate):
     id: int
@@ -58,6 +66,7 @@ class CommentResponse(CommentCreate):
     user: UserResponse
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class ActivityLogResponse(BaseModel):
     id: int

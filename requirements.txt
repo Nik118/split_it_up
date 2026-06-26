@@ -10,3 +10,5 @@ passlib[bcrypt]
 pyjwt
 python-multipart
 google-generativeai
+black
+isort

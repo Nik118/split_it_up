@@ -1,15 +1,19 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean
-from sqlalchemy.orm import relationship
 from datetime import datetime
+
+from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
+                        Table)
+from sqlalchemy.orm import relationship
+
 from core.database import Base
 
 friends_association = Table(
-    'friends',
+    "friends",
     Base.metadata,
-    Column('user_id_1', Integer, ForeignKey('users.id'), primary_key=True),
-    Column('user_id_2', Integer, ForeignKey('users.id'), primary_key=True),
-    Column('created_at', DateTime, default=datetime.utcnow)
+    Column("user_id_1", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("user_id_2", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("created_at", DateTime, default=datetime.utcnow),
 )
+
 
 class User(Base):
     __tablename__ = "users"
@@ -25,9 +29,9 @@ class User(Base):
     # Self-referential relationship for friends
     # Note: To fully support bi-directional friends easily, we might need a custom property or two relationships,
     # but for simplicity, we can query the friends_association table directly.
-    
+
     # Groups the user is a member of
     groups = relationship("Group", secondary="group_members", back_populates="members")
-    
+
     # Groups the user created
     created_groups = relationship("Group", back_populates="creator")
